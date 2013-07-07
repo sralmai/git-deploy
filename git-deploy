@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+#
+# brain-dead simply git-deploy
+#
+# Author: David Samuelson <sralmai@sharetruth.net>
+#
+
+if [[ $# -eq 0 ]]; then
+    # check for default arguments...
+    TGT=$(git config -l | grep deploy | head -1 | cut -d . -f 2)
+    if [[ -n $TGT ]]; then
+        echo "redeploying to $TGT"
+        git-deploy reload $TGT
+        exit 0
+    fi
+    echo -e "\n\tUsage: $0 \"enchant|reload\" <ssh-able host> <target_dir>\n"
+    exit 1
+fi
+
+if [[ x"$1" == "xenchant" ]]; then
+    if [[ $# != 3 ]]; then
+        echo -e "\n\tUsage: $0 \"enchant\" <ssh-able host> <target_dir>\n"
+        exit 1
+    fi
+    TGT=$2
+    TDIR=$3
+    echo "enchanting $TGT"
+    ssh -x $TGT <<EOF
+git init $TDIR
+cd $TDIR
+git checkout -b _empty
+touch .dead
+git add .dead
+git commit -m 'empty branch'
+EOF
+    git config --add deploy.$TGT.ssh $TGT
+    git config --add deploy.$TGT.dir $TDIR
+    # TODO: fix target username
+    git remote add $TGT ssh://$TGT/home/$USER/$TDIR
+    git push $TGT master
+    
+    ssh -x $TGT <<EOF
+cd $TDIR
+git checkout master
+if [[ -e .deploy ]]; then
+    chmod +x .deploy
+    ./.deploy
+fi
+EOF
+    echo "Done!"
+    exit 0
+elif [[ x"$1" == "xreload" ]]; then
+    if [[ $# -lt 2 || $# -gt 3 ]]; then
+        echo -e "\n\tUsage: $0 \"reload\" <target>\n"
+        exit 1
+    fi
+    TGT=$(git config --get deploy.$2.ssh)
+    TDIR=$(git config --get deploy.$2.dir)
+    if [[ -z "$TGT" || -z "$TDIR" ]]; then
+        echo "corrupt config! (missing deploy.$2.ssh and/or deploy.$2.dir)"
+        exit 1
+    fi
+    ssh -x $TGT <<EOF
+cd $TDIR
+git reset --hard HEAD
+git checkout _empty
+EOF
+    git push $TGT master
+    ssh -x $TGT <<EOF
+cd $TDIR
+git checkout master
+if [[ -e .deploy ]]; then
+    chmod +x .deploy
+    ./.deploy
+fi
+EOF
+    echo "Done!"
+    exit 0
+fi
