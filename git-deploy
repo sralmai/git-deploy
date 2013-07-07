@@ -29,10 +29,11 @@ if [[ x"$1" == "xenchant" ]]; then
     ssh -x $TGT <<EOF
 git init $TDIR
 cd $TDIR
-git checkout -b _empty
 touch .dead
 git add .dead
 git commit -m 'empty branch'
+git checkout -b _empty
+git branch -d master
 EOF
     git config --add deploy.$TGT.ssh $TGT
     git config --add deploy.$TGT.dir $TDIR
