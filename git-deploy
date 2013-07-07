@@ -47,6 +47,7 @@ git checkout master
 if [[ -e .deploy ]]; then
     chmod +x .deploy
     ./.deploy
+    exit
 fi
 EOF
     echo "Done!"
@@ -68,12 +69,15 @@ git reset --hard HEAD
 git checkout _empty
 EOF
     git push $TGT master
-    ssh -x $TGT <<EOF
+    ssh -t -t -x $TGT <<EOF
 cd $TDIR
 git checkout master
 if [[ -e .deploy ]]; then
     chmod +x .deploy
+    echo -n "Executing .deploy... "
     ./.deploy
+    echo "done."
+    exit
 fi
 EOF
     echo "Done!"
